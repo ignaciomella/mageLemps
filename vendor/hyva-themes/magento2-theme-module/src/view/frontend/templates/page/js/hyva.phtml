@@ -1,0 +1,240 @@
+<?php
+/**
+ * Hyvä Themes - https://hyva.io
+ * Copyright © Hyvä Themes 2020-present. All rights reserved.
+ * This product is licensed per Magento install
+ * See https://hyva.io/license
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\Currency;
+use Hyva\Theme\ViewModel\StoreConfig;
+use Magento\Cookie\Helper\Cookie;
+use Magento\Framework\Escaper;
+
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+/** @var Currency $currencyViewModel */
+$currencyViewModel = $viewModels->require(Currency::class);
+$storeConfig = $viewModels->require(StoreConfig::class);
+$jsLocale = str_replace('_', '-', $storeConfig->getStoreConfig('general/locale/code'));
+
+?>
+<script>
+    'use strict';
+    (function( hyva, undefined ) {
+
+        function lifetimeToExpires(options, defaults) {
+
+            var lifetime = options.lifetime || defaults.lifetime;
+
+            if (lifetime) {
+                var date = new Date;
+                date.setTime(date.getTime() + lifetime * 1000);
+                return date;
+            }
+
+            return null;
+        }
+
+        function generateRandomString() {
+
+            const allowedCharacters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+                length = 16;
+
+            let formKey = '',
+                charactersLength = allowedCharacters.length;
+
+            for (var i = 0; i < length; i++) {
+                formKey += allowedCharacters[Math.round(Math.random() * (charactersLength - 1))]
+            }
+
+            return formKey;
+        }
+
+        const cookieTempStorage = {};
+
+        const internalCookie = {
+            get(name) {
+                const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+                return v ? v[2] : null;
+            },
+            set(name, value, days, skipSetDomain) {
+                let expires,
+                    path,
+                    domain,
+                    secure,
+                    samesite;
+
+                const defaultCookieConfig = {
+                    expires: null,
+                    path: '/',
+                    domain: null,
+                    secure: false,
+                    lifetime: null,
+                    samesite: 'lax'
+                };
+
+                const cookieConfig = window.COOKIE_CONFIG || {};
+
+                expires = days
+                    ? lifetimeToExpires({lifetime: 24 * 60 * 60 * days, expires: null}, defaultCookieConfig)
+                    : lifetimeToExpires(window.COOKIE_CONFIG, defaultCookieConfig) || defaultCookieConfig.expires;
+
+                path = cookieConfig.path || defaultCookieConfig.path;
+                domain = !skipSetDomain && (cookieConfig.domain || defaultCookieConfig.domain);
+                secure = cookieConfig.secure || defaultCookieConfig.secure;
+                samesite = cookieConfig.samesite || defaultCookieConfig.samesite;
+
+                document.cookie = name + "=" + encodeURIComponent(value) +
+                    (expires ? '; expires=' + expires.toGMTString() : '') +
+                    (path ? '; path=' + path : '') +
+                    (domain ? '; domain=' + domain : '') +
+                    (secure ? '; secure' : '') +
+                    (samesite ? '; samesite=' + samesite : 'lax');
+            },
+            isWebsiteAllowedToSaveCookie() {
+                const allowedCookies = this.get('<?= /* @noEscape */  Cookie::IS_USER_ALLOWED_SAVE_COOKIE ?>');
+                if (allowedCookies) {
+                    const allowedWebsites = JSON.parse(unescape(allowedCookies));
+
+                    return allowedWebsites[CURRENT_WEBSITE_ID] === 1;
+                }
+                return false;
+            },
+            getGroupByCookieName(name) {
+                const cookieConsentConfig = window.cookie_consent_config || {};
+                let group = null;
+                for (let prop in cookieConsentConfig) {
+                    if (!cookieConsentConfig.hasOwnProperty(prop)) continue;
+                    if (cookieConsentConfig[prop].includes(name)) {
+                        group = prop;
+                        break;
+                    }
+                }
+                return group;
+            },
+            isCookieAllowed(name) {
+                const cookieGroup = this.getGroupByCookieName(name);
+                return cookieGroup
+                    ? window.cookie_consent_groups[cookieGroup]
+                    : this.isWebsiteAllowedToSaveCookie();
+            },
+            saveTempStorageCookies() {
+                for (const [name, data] of Object.entries(cookieTempStorage)) {
+                    if (this.isCookieAllowed(name)) {
+                        this.set(name, data['value'], data['days'], data['skipSetDomain']);
+                        delete cookieTempStorage[name];
+                    }
+                }
+            }
+        };
+
+        hyva.getCookie = (name) => {
+            const cookieConfig = window.COOKIE_CONFIG || {};
+
+            if (cookieConfig.cookie_restriction_enabled && ! internalCookie.isCookieAllowed(name)) {
+                return cookieTempStorage[name] ? cookieTempStorage[name]['value'] : null;
+            }
+
+            return internalCookie.get(name);
+        }
+
+        hyva.setCookie = (name, value, days, skipSetDomain) => {
+            const cookieConfig = window.COOKIE_CONFIG || {};
+
+            if (cookieConfig.cookie_restriction_enabled && ! internalCookie.isCookieAllowed(name)) {
+                cookieTempStorage[name] = {value, days, skipSetDomain};
+                return;
+            }
+            return internalCookie.set(name, value, days, skipSetDomain);
+        }
+
+        hyva.getBrowserStorage = () => {
+            const browserStorage = window.localStorage || window.sessionStorage;
+            if (!browserStorage) {
+                console.warn('Browser Storage is unavailable');
+                return false;
+            }
+            try {
+                browserStorage.setItem('storage_test', 1);
+                browserStorage.removeItem('storage_test');
+            } catch (error) {
+                console.warn('Browser Storage is not accessible', error);
+                return false;
+            }
+            return browserStorage;
+        }
+
+        hyva.postForm = (postParams) => {
+            const form = document.createElement("form");
+
+            let data = postParams.data;
+
+            if (!data.uenc) {
+                data.uenc = btoa(window.location.href);
+            }
+            form.method = "POST";
+            form.action = postParams.action;
+
+            Object.keys(postParams.data).map(key => {
+                const field = document.createElement("input");
+                field.type = 'hidden'
+                field.value = postParams.data[key];
+                field.name = key;
+                form.appendChild(field);
+            });
+
+            const form_key = document.createElement("input");
+            form_key.type = 'hidden';
+            form_key.value = document.querySelector('input[name=form_key]').value;
+            form_key.name="form_key";
+            form.appendChild(form_key);
+
+            document.body.appendChild(form);
+
+            form.submit();
+        }
+
+        hyva.getFormKey = function () {
+            let formKey = hyva.getCookie('form_key');
+
+            if (!formKey) {
+                formKey = generateRandomString();
+                hyva.setCookie('form_key', formKey);
+            }
+
+            return formKey;
+        }
+
+        hyva.formatPrice = (value, showSign) => {
+            var formatter = new Intl.NumberFormat(
+                '<?= $escaper->escapeJs($jsLocale) ?>',
+                {
+                    style: 'currency',
+                    currency: '<?= $escaper->escapeHtml($currencyViewModel->getCurrentCurrencyCode()) ?>',
+                    signDisplay: showSign ? "always" : "auto"
+                }
+            );
+            return (typeof Intl.NumberFormat.prototype.formatToParts === 'function') ?
+                formatter.formatToParts(value).map(({type, value}) => {
+                    switch (type) {
+                        case 'currency':
+                            return '<?= $currencyViewModel->getCurrentCurrencySymbol() ?: ""; ?>' || value;
+                        case 'minusSign':
+                            return '- ';
+                        case 'plusSign':
+                            return '+ ';
+                        default :
+                            return value;
+                    }
+                }).reduce((string, part) => string + part) :
+                formatter.format(value);
+        }
+
+        window.addEventListener('user-allowed-save-cookie', () => internalCookie.saveTempStorageCookies())
+
+    }( window.hyva = window.hyva || {} ));
+</script>

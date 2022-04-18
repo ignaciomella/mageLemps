@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © Magento, Inc. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <block name="product.swatch.item" template="Magento_Swatches::product/swatch-item.phtml"/>
+        <block name="product.swatch.tooltip" template="Magento_Swatches::product/tooltip.phtml"/>
+
+        <referenceBlock name="category.product.type.details.renderers">
+            <block class="Magento\Swatches\Block\Product\Renderer\Listing\Configurable"
+                   name="category.product.type.details.renderers.configurable" as="configurable"
+                   template="Magento_Swatches::product/listing/renderer.phtml"
+                   ifconfig="catalog/frontend/show_swatches_in_product_list"
+            />
+        </referenceBlock>
+
+        <referenceContainer name="before.body.end">
+            <block name="product.info.options.swatch.js"
+                   as="options_swatch_js"
+                   template="Magento_Swatches::product/js/swatch-options.phtml"
+            />
+            <block name="product.info.options.configurable.js"
+                   as="options_configurable_js"
+                   template="Magento_ConfigurableProduct::product/view/type/options/js/configurable-options.phtml"
+            />
+        </referenceContainer>
+
+    </body>
+</page>

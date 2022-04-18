@@ -1,0 +1,71 @@
+<?php
+/**
+ * Hyvä Themes - https://hyva.io
+ * Copyright © Hyvä Themes 2020-present. All rights reserved.
+ * This product is licensed per Magento install
+ * See https://hyva.io/license
+ */
+
+declare(strict_types=1);
+
+use Magento\Catalog\Block\Product\ProductList\Toolbar;
+use Magento\Framework\Escaper;
+
+/** @var Toolbar $block */
+/** @var Escaper $escaper */
+?>
+<div class="toolbar-sorter sorter flex items-center order-1 col-span-3 sm:col-span-6
+        md:col-span-3 lg:col-span-6 justify-end">
+    <span class="sr-only sorter-label">
+        <?= $escaper->escapeHtml(__('Sort By')) ?>
+    </span>
+    <select data-role="sorter"
+            class="form-select sorter-options mr-3"
+            aria-label="<?= $escaper->escapeHtml(__('Sort By')) ?>"
+            @change="changeUrl(
+                'product_list_order',
+                $event.currentTarget.options[$event.currentTarget.selectedIndex].value,
+                options.orderDefault
+            )">
+        <?php foreach ($block->getAvailableOrders() as $orderCode => $orderLabel):?>
+            <option value="<?= $escaper->escapeHtmlAttr($orderCode) ?>"
+                <?php if ($block->isOrderCurrent($orderCode)):?>
+                    selected="selected"
+                <?php endif; ?>
+                >
+                <?= $escaper->escapeHtml(__($orderLabel)) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+    <?php if ($block->getCurrentDirection() == 'desc'):?>
+        <a title="<?= $escaper->escapeHtmlAttr(__('Set Ascending Direction')) ?>"
+           href="#"
+           class="action sorter-action sort-desc"
+           @click.prevent="changeUrl('product_list_dir', 'asc', options.directionDefault)"
+        >
+            <span>
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                    />
+                </svg>
+            </span>
+        </a>
+    <?php else:?>
+        <a title="<?= $escaper->escapeHtmlAttr(__('Set Descending Direction')) ?>"
+           href="#"
+           class="action sorter-action sort-asc"
+           @click.prevent="changeUrl('product_list_dir', 'desc', options.directionDefault)"
+        >
+            <span>
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"
+                    />
+                </svg>
+            </span>
+        </a>
+    <?php endif; ?>
+</div>

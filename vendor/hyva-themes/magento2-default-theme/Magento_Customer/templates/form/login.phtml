@@ -1,0 +1,134 @@
+<?php
+/**
+ * Hyvä Themes - https://hyva.io
+ * Copyright © Hyvä Themes 2020-present. All rights reserved.
+ * This product is licensed per Magento install
+ * See https://hyva.io/license
+ */
+
+declare(strict_types=1);
+
+use Magento\Customer\Block\Form\Login;
+use Magento\Framework\Escaper;
+use Hyva\Theme\ViewModel\ReCaptcha;
+
+/** @var Escaper $escaper */
+/** @var Login $block */
+
+/** @var ReCaptcha $recaptchaViewModel */
+//Do not replace this with $viewModels->require(ReCaptcha::class); that might break the dependency on
+//Magento's Recaptcha module
+$recaptchaViewModel = $block->getData('viewModelRecaptcha');
+$recaptchaInputFieldBlock = '';
+$recaptchaLegalNoticeBlock = '';
+if ($recaptchaViewModel !== null && $recaptchaData = $recaptchaViewModel->getRecaptchaData('customer_login')) {
+    $recaptchaInputFieldBlock = $recaptchaData[ReCaptcha::RECAPTCHA_INPUT_FIELD];
+    $recaptchaLegalNoticeBlock = $recaptchaData[ReCaptcha::RECAPTCHA_LEGAL_NOTICE_BLOCK];
+}
+?>
+<div class="w-full md:w-1/2 card mr-4">
+    <div aria-labelledby="block-customer-login-heading">
+        <form class="form form-login"
+              action="<?= $escaper->escapeUrl($block->getPostActionUrl()) ?>"
+              method="post"
+              x-data="initCustomerLoginForm()"
+              @submit.prevent="submitForm()"
+              id="customer-login-form">
+            <?= $block->getBlockHtml('formkey') ?>
+            <fieldset class="fieldset login">
+                <legend class="mb-3">
+                    <h2 class="text-xl font-medium title-font text-primary">
+                        <?= $escaper->escapeHtml(__('Login')) ?>
+                    </h2>
+                </legend>
+                <div class="text-secondary-darker mb-8">
+                    <?= $escaper->escapeHtml(
+                        __('If you have an account, sign in with your email address.')
+                    ) ?>
+                </div>
+                <div class="field email required">
+                    <label class="label" for="email"><span><?= $escaper->escapeHtml(__('Email')) ?></span></label>
+                    <div class="control">
+                        <input name="login[username]"
+                               class="form-input"
+                               value="<?= $escaper->escapeHtmlAttr($block->getUsername()) ?>"
+                            <?php if ($block->isAutocompleteDisabled()): ?>
+                                autocomplete="off"
+                            <?php endif; ?>
+                               id="email"
+                               type="email"
+                               title="<?= $escaper->escapeHtmlAttr(__('Email')) ?>"/>
+                    </div>
+                </div>
+                <div class="field password required">
+                    <label for="pass" class="label"><span><?= $escaper->escapeHtml(__('Password')) ?></span></label>
+                    <div class="control">
+                        <input name="login[password]"
+                               class="form-input"
+                               type="password"
+                            <?php if ($block->isAutocompleteDisabled()): ?>
+                                autocomplete="off"
+                            <?php endif; ?>
+                               id="pass"
+                               title="<?= $escaper->escapeHtmlAttr(__('Password')) ?>"/>
+                    </div>
+                </div>
+
+                <?= $block->getBlockHtml($recaptchaInputFieldBlock) ?>
+                <?= $block->getChildHtml('form_additional_info') ?>
+                <div class="actions-toolbar flex justify-between pt-6 pb-2 items-center">
+                        <button type="submit" class="btn btn-primary" name="send">
+                            <span><?= $escaper->escapeHtml(__('Sign In')) ?></span></button>
+                        <a class="underline text-secondary" href="<?= $escaper->escapeUrl(
+                            $block->getForgotPasswordUrl()
+                        ) ?>"><span><?= $escaper->escapeHtml(__('Forgot Your Password?')) ?></span>
+                        </a>
+                </div>
+
+                <div>
+                    <template x-if="displayErrorMessage">
+                        <p class="text-red flex items-center">
+                                    <span class="inline-block w-8 h-8 mr-3">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                             stroke="currentColor">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                    </span>
+                            <template x-for="errorMessage in errorMessages">
+                                <span x-html="errorMessage"></span>
+                            </template>
+                        </p>
+                    </template>
+                </div>
+            </fieldset>
+        </form>
+    </div>
+    <div class="w-full">
+        <?= $block->getBlockHtml($recaptchaLegalNoticeBlock) ?>
+    </div>
+    <script>
+        function initCustomerLoginForm() {
+            return {
+                errors: 0,
+                hasCaptchaToken: 0,
+                displayErrorMessage: false,
+                errorMessages: [],
+                setErrorMessages(messages) {
+                    this.errorMessages = [messages]
+                    this.displayErrorMessage = this.errorMessages.length
+                },
+                submitForm() {
+                    // do not rename $form - it is the expected name in the child block output
+                    const $form = document.querySelector('#customer-login-form');
+                    <?= $block->getChildHtml('recaptcha_validation_customer_login'); ?>
+
+                    if (this.errors === 0) {
+                        $form.submit();
+                    }
+                }
+            }
+        }
+    </script>
+</div>
+
